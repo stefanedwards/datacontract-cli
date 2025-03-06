@@ -1,4 +1,5 @@
 import uuid
+import re
 from typing import List
 from venv import logger
 
@@ -22,11 +23,12 @@ def create_checks(data_contract_spec: DataContractSpecification, server: Server)
 def to_model_checks(model_key, model_value, server: Server) -> List[Check]:
     checks: List[Check] = []
     server_type = server.type if server and server.type else None
-    model_name = to_model_name(model_key, model_value, server_type)
+    model_name = to_model_name(model_key, model_value, server_type, server)
     fields = model_value.fields
 
     check_types = is_check_types(server)
-    quote_field_name = server_type in ["postgres", "sqlserver"]
+    quote_field_name = (server_type in ["postgres", "sqlserver"] 
+                        or server_type == "local" and server.format == 'csv')
 
     for field_name, field in fields.items():
         checks.append(check_field_is_present(model_name, field_name, quote_field_name))
@@ -82,7 +84,7 @@ def is_check_types(server: Server) -> bool:
     return server.format != "json" and server.format != "csv" and server.format != "avro"
 
 
-def to_model_name(model_key, model_value, server_type):
+def to_model_name(model_key, model_value, server_type, server: Server):
     if server_type == "databricks":
         if model_value.config is not None and "databricksTable" in model_value.config:
             return model_value.config["databricksTable"]
